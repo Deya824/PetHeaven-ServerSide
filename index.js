@@ -6,7 +6,7 @@ const cors=require("cors");
 const dotenv = require('dotenv');
 dotenv.config();
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion ,ObjectId} = require('mongodb');
 const uri = process.env.MONGO_URI;
 
 const app = express();
@@ -70,6 +70,54 @@ async function run() {
         }
       );
     });
+    app.get("/petData/:id",async (req,res)=>{
+        const id=req.params.id;
+        const result=await petCollection.findOne({_id:new ObjectId(id)});
+        res.json(result);
+    })
+     app.post("/adopt-request", async (req, res) => {
+      const petData = req.body;
+      const result=await db.collection("adopt-requests").insertOne(petData);
+      res.status(201).send(result);
+      
+    });
+    // Add this route to your Express index.js
+app.get("/my-requests", async (req, res) => {
+  
+        const userEmail = req.query.email;
+        const requests = await db.collection("adopt-requests")
+            .find({ userEmail: userEmail })
+            .toArray();
+        res.send(requests);
+  });
+
+
+app.delete("/adopt-request/:id", async (req, res) => {
+    const { id } = req.params;
+    const { ObjectId } = require('mongodb');
+    const result = await db.collection("adopt-requests").deleteOne({ _id: new ObjectId(id) });
+    res.send(result);
+});
+app.patch("/adopt-request/:id", async (req, res) => {
+    const { id } = req.params;
+    const { officialPickupDate } = req.body; // The date the owner decides
+    const { ObjectId } = require('mongodb');
+
+    try {
+        const result = await db.collection("adopt-requests").updateOne(
+            { _id: new ObjectId(id) },
+            { 
+                $set: { 
+                    status: "approved", 
+                    officialPickupDate: officialPickupDate 
+                } 
+            }
+        );
+        res.send(result);
+    } catch (error) {
+        res.status(500).send({ message: "Failed to approve request" });
+    }
+});
 
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
