@@ -98,14 +98,14 @@ async function run() {
     }
 });
 
-    // POST: Submit adoption request
+   
     app.post("/adopt-request", async (req, res) => {
       const petData = req.body;
       const result = await db.collection("adopt-requests").insertOne(petData);
       res.status(201).send(result);
     });
 
-    // GET: My adoption requests (by user email)
+    
     app.get("/my-requests", async (req, res) => {
       const userEmail = req.query.email;
       const requests = await db.collection("adopt-requests")
@@ -121,8 +121,7 @@ async function run() {
       res.send(result);
     });
 
-    // PATCH: Update adoption request status (approve/reject + optional officialPickupDate)
-   // PATCH: Update adoption request status (approve/reject + optional officialPickupDate)
+    
 app.patch("/adopt-request/:id",verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
