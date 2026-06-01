@@ -26,7 +26,7 @@ const client = new MongoClient(uri, {
 const databaseName = "PetU";
 const db = client.db(databaseName);
 const JWKS= createRemoteJWKSet(
-  new URL("http://localhost:3000/api/auth/jwks")
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
 )
 const verifyToken=async (req,res,next)=>{
   const authHeader=req?.headers.authorization
@@ -46,13 +46,13 @@ return res.status(403).json({message:"Forbidden"});
 
 async function run() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
+    //await client.connect();
+   // await client.db("admin").command({ ping: 1 });
     console.log(`Successfully connected to MongoDB! Using database: ${databaseName}`);
 
     const petCollection = db.collection("pets");
 
-    // POST: Add new pet
+   
     app.post("/petData",verifyToken, (req, res) => {
       const petData = req.body;
       petCollection.insertOne(petData).then(
@@ -64,7 +64,7 @@ async function run() {
       );
     });
 
-    // GET: All pets with search/filter
+   
     app.get("/petData", (req, res) => {
       const search = req.query.search || "";
       const species = req.query.species || "All";
@@ -245,15 +245,7 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-app.get('/test-db', async (req, res) => {
-  try {
-    const usersCollection = db.collection("users");
-    const count = await usersCollection.countDocuments();
-    res.send(`Connected to ${databaseName}. It has ${count} users.`);
-  } catch (error) {
-    res.status(500).send("Database error");
-  }
-});
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
