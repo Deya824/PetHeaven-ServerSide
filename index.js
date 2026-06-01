@@ -114,7 +114,7 @@ async function run() {
       res.send(requests);
     });
 
-    // DELETE: Cancel adoption request
+    
     app.delete("/adopt-request/:id",verifyToken,async (req, res) => {
       const { id } = req.params;
       const result = await db.collection("adopt-requests").deleteOne({ _id: new ObjectId(id) });
@@ -147,16 +147,7 @@ app.patch("/adopt-request/:id",verifyToken, async (req, res) => {
             }
         }
 
-        // If rejected, mark the pet as available again
-        // if (status === 'rejected') {
-        //     const request = await db.collection("adopt-requests").findOne({ _id: new ObjectId(id) });
-        //     if (request?.petId) {
-        //         await db.collection("pets").updateOne(
-        //             { _id: new ObjectId(request.petId) },
-        //             { $set: { adopted: false } }
-        //         );
-        //     }
-        // }
+       
 
         res.send({ success: true, result });
     } catch (error) {
@@ -183,11 +174,11 @@ app.patch("/adopt-request/:id",verifyToken, async (req, res) => {
 app.get("/my-pets-requests", async (req, res) => {
     try {
         const ownerEmail = req.query.email;
-        // 1. Find all pets owned by this user
+       
         const myPets = await db.collection("pets").find({ ownerEmail }).toArray();
         const myPetIds = myPets.map(p => p._id.toString());
         
-        // 2. Find all requests for these pets
+       
         const requests = await db.collection("adopt-requests")
             .find({ petId: { $in: myPetIds } })
             .toArray();
