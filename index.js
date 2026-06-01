@@ -64,7 +64,15 @@ async function run() {
     });
 
     // GET: Single pet by ID
-    app.get("/petData/:id", async (req, res) => {
+    app.get("/petData/:id",(req,res,next)=>{
+const header=req.headers.authorization;
+if(header=="logged in"){
+  next();
+}
+else{
+  res.status(401).send({message:"Unauthorized"});
+}
+    }, async (req, res) => {
       const id = req.params.id;
       const result = await petCollection.findOne({ _id: new ObjectId(id) });
       res.json(result);
