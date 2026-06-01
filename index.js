@@ -3,6 +3,7 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 const express = require('express');
 const cors = require("cors");
+const { SignJWT, jwtVerify, generateKeyPair,createRemoteJWKSet } = require('jose-cjs');
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -24,6 +25,24 @@ const client = new MongoClient(uri, {
 
 const databaseName = "PetU";
 const db = client.db(databaseName);
+const JWKS= createRemoteJWKSet(
+  new URL("http://localhost:3000/api/auth/jwks")
+)
+const verifyToken=async (req,res,next)=>{
+  const authHeader=req?.headers.authorization
+  if(!authHeader) return res.status(401).send({ message: "Unauthorized" });
+  const token=authHeader.split(" ")[1];
+   if(!token) return res.status(401).send({ message: "Unauthorized" });
+  console.log(token);
+  try{
+const {payload}=await jwtVerify(token,JWKS)
+console.log(payload);
+  next();
+  } catch(error){
+return res.status(403).json({message:"Forbidden"});
+  }
+  
+}
 
 async function run() {
   try {
@@ -34,7 +53,7 @@ async function run() {
     const petCollection = db.collection("pets");
 
     // POST: Add new pet
-    app.post("/petData", (req, res) => {
+    app.post("/petData",verifyToken, (req, res) => {
       const petData = req.body;
       petCollection.insertOne(petData).then(
         (result) => res.status(201).send(result),
@@ -64,27 +83,20 @@ async function run() {
     });
 
     // GET: Single pet by ID
-    app.get("/petData/:id",(req,res,next)=>{
-const header=req.headers.authorization;
-if(header=="logged in"){
-  next();
-}
-else{
-  res.status(401).send({message:"Unauthorized"});
-}
-    }, async (req, res) => {
-      const id = req.params.id;
-      const result = await petCollection.findOne({ _id: new ObjectId(id) });
-      res.json(result);
-    });
-    app.patch("/petData/:id",async(req,res)=>{
-        const id=req.params.id;
-        const updateData=req.body;
-        const result=await petCollection.updateOne({_id:new ObjectId(id)},
-            {$set:updateData}
-        )
+    app.get("/petData/:id", verifyToken, async (req, res) => {
+    try {
+        const id = req.params.id;
+        // Basic check to see if the ID is a valid MongoDB ObjectId
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).send({ message: "Invalid ID format" });
+        }
+        const result = await petCollection.findOne({ _id: new ObjectId(id) });
+        if (!result) return res.status(404).send({ message: "Pet not found" });
         res.json(result);
-    })
+    } catch (error) {
+        res.status(500).send({ message: "Server error" });
+    }
+});
 
     // POST: Submit adoption request
     app.post("/adopt-request", async (req, res) => {
@@ -103,7 +115,7 @@ else{
     });
 
     // DELETE: Cancel adoption request
-    app.delete("/adopt-request/:id", async (req, res) => {
+    app.delete("/adopt-request/:id",verifyToken,async (req, res) => {
       const { id } = req.params;
       const result = await db.collection("adopt-requests").deleteOne({ _id: new ObjectId(id) });
       res.send(result);
@@ -111,7 +123,7 @@ else{
 
     // PATCH: Update adoption request status (approve/reject + optional officialPickupDate)
    // PATCH: Update adoption request status (approve/reject + optional officialPickupDate)
-app.patch("/adopt-request/:id", async (req, res) => {
+app.patch("/adopt-request/:id",verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { status, officialPickupDate } = req.body;
@@ -186,8 +198,8 @@ app.get("/my-pets-requests", async (req, res) => {
         res.status(500).send({ message: "Error fetching owner's pet requests" });
     }
 });
-    // DELETE: Remove a pet listing
-    app.delete("/pets/:id", async (req, res) => {
+    
+    app.delete("/pets/:id",verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         await db.collection("pets").deleteOne({ _id: new ObjectId(id) });
@@ -196,6 +208,31 @@ app.get("/my-pets-requests", async (req, res) => {
         res.status(500).send({ message: "Failed to delete listing" });
       }
     });
+    
+app.patch("/petData/:id",verifyToken, async (req, res) => {
+    try {
+        const id = req.params.id;
+        const updateData = req.body;
+
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).send({ message: "Invalid ID format" });
+        }
+
+        const result = await petCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateData }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).send({ message: "Pet not found" });
+        }
+
+        res.send({ success: true, result });
+    } catch (error) {
+        console.error("Error updating pet:", error);
+        res.status(500).send({ message: "Failed to update pet" });
+    }
+});
 
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
